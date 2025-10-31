@@ -6,7 +6,7 @@ import seaborn as sns
 url = "https://eventregistry.org/api/v1/article/getArticles"
 
 params = {
-    "apiKey": "4b0b2673-e0e5-43b7-b50f-3b34275985cd",
+    "apiKey": "API_KEY",
     "resultType": "articles",
     "articlesSortBy": "date",
     "articlesCount": 100,
@@ -21,7 +21,7 @@ df = pd.DataFrame(data['articles']['results'])
 
 print(df)
 
-client = genai.Client(api_key="AIzaSyCG_Ko7eoWuMslo8wUJNETHy98bDlWIOr0")
+client = genai.Client(api_key="APIKEY")
 
 classifications = []
 
