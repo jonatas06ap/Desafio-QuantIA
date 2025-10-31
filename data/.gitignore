@@ -1,0 +1,4 @@
+# Ignora todos os arquivos de dados 
+*.* 
+!.gitignore 
+!.gitkeep 

@@ -1,0 +1,6 @@
+# Ignora todos os arquivos de modelo 
+*.pkl 
+*.h5 
+*.joblib 
+!.gitignore 
+!.gitkeep 

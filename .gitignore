@@ -1,0 +1,16 @@
+# Arquivos de ambiente Python 
+__pycache__/ 
+*.pyc 
+.ipynb_checkpoints/ 
+venv/ 
+.venv/ 
+ 
+# Arquivos de segredos 
+*.env 
+.env 
+credentials.json 
+ 
+# IDEs e OS 
+.vscode/ 
+.idea/ 
+Thumbs.db 
