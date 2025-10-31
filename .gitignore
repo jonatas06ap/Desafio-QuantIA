@@ -1,0 +1,36 @@
+# --- Python ---
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# --- Dados e Modelos (MUITO IMPORTANTE) ---
+# Ignora tudo dentro de /data/ e /models/
+# Exceto o arquivo .gitkeep, para que a pasta apareça
+/data/*
+!/data/.gitkeep
+
+/models/*
+!/models/.gitkeep
+*.pkl
+*.h5
+*.joblib
+
+# --- Frontend (Node.js) ---
+/frontend/node_modules/
+/frontend/build/
+.npm
+
+# --- Segredos (MUITO IMPORTANTE) ---
+# Nunca envie suas chaves de API ou senhas!
+.env
+.env.*
+*.env
+credentials.json
+
+# --- IDEs e OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db 
