@@ -6,6 +6,7 @@ import time
 import json
 from newsapi import NewsApiClient
 from dotenv import load_dotenv
+import requests
 
 def get_historical_ohlcv(ativo, timeframe, data_inicio_str, pasta_saida='data/raw'):
     """
@@ -100,17 +101,10 @@ def get_historical_ohlcv(ativo, timeframe, data_inicio_str, pasta_saida='data/ra
     
     return df
 
-def get_news_data(query, data_inicio_str, data_fim_str, pasta_saida='data/raw'):
-    """
-    Busca notícias de uma query usando a NewsAPI e salva em JSON.
 
-    Parâmetros:
-    - query (str): O termo de busca (ex: 'Bitcoin', 'Ethereum').
-    - data_inicio_str (str): Data de início 'YYYY-MM-DD'.
-    - data_fim_str (str): Data de fim 'YYYY-MM-DD'.
-    - pasta_saida (str): Pasta onde o JSON será salvo.
-    """
-    
+# As datas de entrada devem ser strings no formato "YYYY-MM-DD"
+def get_news_data(data_inicio_str, data_fim_str, pasta_saida='data/raw'):
+
     # 1. Carrega variáveis de ambiente (onde está nossa chave)
     load_dotenv()
     api_key = os.getenv('NEWS_API_KEY')
@@ -120,46 +114,102 @@ def get_news_data(query, data_inicio_str, data_fim_str, pasta_saida='data/raw'):
         print("Por favor, crie um arquivo .env na raiz do projeto com 'NEWS_API_KEY=SUA_CHAVE'")
         return None
 
-    # 2. Inicializa o cliente da API
-    newsapi = NewsApiClient(api_key=api_key)
+    # 2. Define os parâmetros da requisição
+    url_api = "https://eventregistry.org/api/v1/article/getArticles"
+    params =  {
+        "action": "getArticles",
+        "keyword": ["Bitcoin", "Cryptocurrency", "Blockchain", "Crypto"],
+        "startDate": data_inicio_str,
+        "endDate": data_fim_str,
+        "ignoreSourceGroupUri": "paywall/paywalled_sources",
+        # "articlesPage": 1, # Será definido dentro do loop
+        "articlesSortBy": "date",
+        "dataType": [
+            "news",
+            "pr"
+        ],
+        "resultType": "articles",
+        "apiKey": api_key,
+        "articlesCount": 100 # Explícito que queremos 100 por página
+    }
 
-    print(f"Buscando notícias para '{query}' de {data_inicio_str} até {data_fim_str}...")
+    print(f"Buscando notícias de {data_inicio_str} até {data_fim_str}...")
 
-    try:
-        # 3. Executa a busca
-        # Nota: O plano 'developer' (gratuito) só permite buscar nos últimos 30 dias.
-        # language='en' -> Focar em inglês melhora a qualidade do sentimento
-        todos_os_artigos = newsapi.get_everything(
-            q=query,
-            language='en',
-            from_param=data_inicio_str,
-            to=data_fim_str,
-            sort_by='publishedAt', # Ordena por data
-            page_size=100 # Máximo por página
-        )
-        
-        num_artigos = todos_os_artigos['totalResults']
-        if num_artigos == 0:
-            print("Nenhum artigo encontrado para esta consulta.")
-            return None
+    # --- Início das Alterações ---
+
+    pagina_atual = 1
+    todos_os_artigos = [] # Lista para acumular todos os resultados
+
+    # 3. Loop de paginação
+    while True:
+        try:
+            # Define a página atual nos parâmetros da requisição
+            params["articlesPage"] = pagina_atual
             
-        print(f"Total de {num_artigos} artigos encontrados.")
-        
-        # 4. Salva os dados brutos em um arquivo JSON
-        os.makedirs(pasta_saida, exist_ok=True)
-        
-        # Formata o nome do arquivo
-        query_arquivo = query.replace(' ', '_').lower()
-        nome_arquivo = f"noticias_{query_arquivo}_{data_inicio_str}_a_{data_fim_str}.json"
-        caminho_arquivo = os.path.join(pasta_saida, nome_arquivo)
+            print(f"Buscando página {pagina_atual}...")
+            response = requests.get(url_api, params=params)
+            response.raise_for_status() # Levanta um erro para códigos de status HTTP ruins
+            dados = response.json()
 
-        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
-            json.dump(todos_os_artigos, f, ensure_ascii=False, indent=4)
+            # Extrai os artigos desta página
+            # Usamos .get() para evitar KeyErrors se a resposta for inesperada
+            artigos_da_pagina = dados.get('articles', {}).get('results', [])
             
-        print(f"Notícias salvas com sucesso em: {caminho_arquivo}")
-        
-        return todos_os_artigos
+            if not artigos_da_pagina:
+                # Se 'results' está vazio, não há mais páginas.
+                print("Não há mais artigos. Finalizando a busca.")
+                break # Sai do loop 'while True'
 
-    except Exception as e:
-        print(f"Erro ao buscar notícias: {e}")
+            # Adiciona os artigos encontrados à lista principal
+            todos_os_artigos.extend(artigos_da_pagina)
+            
+            # Feedback opcional sobre o total de páginas
+            if pagina_atual == 1: # Só executa na primeira página
+                total_paginas = dados.get('articles', {}).get('pages', 0)
+                if total_paginas > 0:
+                    print(f"Total de páginas a serem buscadas: {total_paginas}")
+
+            # Prepara para a próxima iteração
+            pagina_atual += 1
+            
+            # Adiciona um pequeno delay para ser gentil com a API
+            time.sleep(0.5) # 0.5 segundos
+
+        except requests.exceptions.RequestException as e:
+            print(f"Erro ao buscar notícias na página {pagina_atual}: {e}")
+            print("Parando a coleta para evitar dados incompletos.")
+            return None # Retorna None em caso de falha
+            
+    # --- Fim das Alterações ---
+
+    # Se chegamos aqui, o loop terminou com sucesso
+    num_artigos_total = len(todos_os_artigos)
+
+    if num_artigos_total == 0:
+        print("Nenhum artigo encontrado no período especificado.")
         return None
+
+    print(f"Total de {num_artigos_total} artigos encontrados em {pagina_atual - 1} páginas.")
+
+    # 4. Salva os dados *completos* em um arquivo JSON
+    os.makedirs(pasta_saida, exist_ok=True)
+    
+    nome_arquivo = f"noticias_eventregistry_{data_inicio_str}_a_{data_fim_str}.json"
+    caminho_arquivo = os.path.join(pasta_saida, nome_arquivo)
+
+    # Recria a estrutura de resposta da API, mas com os resultados agregados
+    dados_completos = {
+        "articles": {
+            "results": todos_os_artigos,
+            "totalResults": num_artigos_total,
+            "pages": pagina_atual - 1
+        }
+    }
+
+    with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+        json.dump(dados_completos, f, ensure_ascii=False, indent=4)
+        
+    print(f"Notícias salvas com sucesso em: {caminho_arquivo}")
+    
+    # Retorna o dicionário completo com todos os artigos
+    return dados_completos
