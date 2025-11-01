@@ -1,0 +1,12 @@
+pandas 
+numpy 
+scikit-learn 
+xgboost 
+ccxt 
+requests 
+newsapi-python 
+google-generativeai 
+vectorbt 
+pyarrow 
+jupyter 
+matplotlib 
